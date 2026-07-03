@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Claude 用量</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Claude 用量">
+<meta name="theme-color" content="#fdf6f0">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:-apple-system,"Noto Sans TC",sans-serif;color:#5c5470;
+  background:linear-gradient(160deg,#fdf6f0 0%,#fceef5 45%,#eef3fd 100%);
+  padding:calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 28px)}
+h1{font-size:26px;font-weight:800;margin:0;color:#4a4358;letter-spacing:.5px}
+.upd{color:#a89fb8;font-size:13px;margin:6px 0 26px}
+.card{background:rgba(255,255,255,.85);border-radius:24px;padding:20px 20px 18px;margin-bottom:18px;
+  box-shadow:0 6px 20px rgba(180,160,200,.18)}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ic{font-size:26px;background:#fff;border-radius:16px;width:48px;height:48px;display:flex;
+  align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(180,160,200,.25)}
+.nm{font-size:17px;font-weight:700;color:#4a4358}
+.sub{font-size:12px;color:#a89fb8;margin-top:2px}
+.pc{margin-left:auto;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;color:#8f7ad6}
+.hi .pc{color:#e88aa0}
+.bar{background:#f1eaf7;border-radius:99px;height:18px;overflow:hidden}
+.fill{height:100%;border-radius:99px;min-width:18px;
+  background:linear-gradient(90deg,#c9b8f5,#a5c8fa);transition:width .6s}
+.hi .fill{background:linear-gradient(90deg,#f7b6c8,#f5a0b5)}
+.rs{color:#a89fb8;font-size:12px;margin-top:10px;text-align:right}
+.paw{text-align:center;font-size:13px;color:#c3b8d6;margin-top:26px}
+.err{background:rgba(255,255,255,.85);border-radius:24px;padding:28px 22px;text-align:center;
+  box-shadow:0 6px 20px rgba(180,160,200,.18);font-size:14px;color:#b08a9a;line-height:1.7}
+</style>
+</head>
+<body>
+<h1 id="title">Claude 用量 🐣</h1>
+<div class="upd" id="upd">載入中…</div>
+<div id="cards"></div>
+<div class="paw">🐾 回到 App 會自動更新</div>
+<script>
+var GAS = 'https://script.google.com/macros/s/AKfycbyAMQThp2VTQNNcL26mtYYhorVJPpzNYzOAQqzX-2NmDbGcjd4krWhTzGRSP573Oyzg9Q/exec';
+var key = new URLSearchParams(location.search).get('key') || localStorage.getItem('k');
+if (key) localStorage.setItem('k', key);
+
+var META = {
+  session:       { name: 'Session', sub: '5 小時額度', icon: '⚡️' },
+  weekly_all:    { name: '本週',    sub: '所有模型',   icon: '🗓' },
+  weekly_scoped: { name: 'Fable',  sub: '本週高階額度', icon: '✨' }
+};
+function mood(p){ return p >= 90 ? '🥵' : p >= 70 ? '😅' : p >= 40 ? '🙂' : '😴'; }
+function fmt(iso){
+  var d = new Date(iso);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' +
+    String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function esc(s){ return String(s).replace(/[<>&"]/g, function(c){return '&#'+c.charCodeAt(0)+';';}); }
+
+function render(data){
+  var html = '', first = null;
+  (data.limits || []).forEach(function(L){
+    var m = META[L.kind];
+    if (!m) return;
+    if (first === null) first = L.percent;
+    html += '<div class="card' + (L.percent >= 80 ? ' hi' : '') + '">' +
+      '<div class="top"><div class="ic">' + m.icon + '</div>' +
+      '<div><div class="nm">' + m.name + '</div><div class="sub">' + m.sub + '</div></div>' +
+      '<div class="pc">' + L.percent + '%</div></div>' +
+      '<div class="bar"><div class="fill" style="width:' + Math.min(L.percent,100) + '%"></div></div>' +
+      '<div class="rs">🔄 ' + fmt(L.resets_at) + ' 重置</div></div>';
+  });
+  document.getElementById('cards').innerHTML = html;
+  document.getElementById('title').textContent = 'Claude 用量 ' + mood(first || 0);
+  var n = new Date();
+  document.getElementById('upd').textContent = '更新於 ' + fmt(n.toISOString()) + '・台北';
+}
+
+function showErr(msg){
+  document.getElementById('cards').innerHTML = '<div class="err">😿 讀不到資料<br>' + esc(msg) +
+    '<br><br>過幾分鐘再試，若一直失敗代表 token 需要重新播種</div>';
+  document.getElementById('upd').textContent = '';
+}
+
+var loading = false;
+function load(){
+  if (loading) return;
+  if (!key) { showErr('網址缺少 key 參數'); return; }
+  loading = true;
+  fetch(GAS + '?key=' + encodeURIComponent(key) + '&format=json')
+    .then(function(r){ return r.text(); })
+    .then(function(t){
+      var d;
+      try { d = JSON.parse(t); } catch(e) { throw new Error(t.replace(/<[^>]*>/g,' ').trim().slice(0,150)); }
+      render(d);
+    })
+    .catch(function(e){ showErr(e.message); })
+    .finally(function(){ loading = false; });
+}
+load();
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+setInterval(load, 300000);
+</script>
+</body>
+</html>
