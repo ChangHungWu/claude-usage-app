@@ -78,6 +78,7 @@ var META = {
 };
 function mood(p){ return p >= 90 ? '🥵' : p >= 70 ? '😅' : p >= 40 ? '🙂' : '😴'; }
 function fmt(d){
+  if (!d || isNaN(d.getTime()) || d.getTime() === 0) return '—';
   return (d.getMonth()+1) + '/' + d.getDate() + ' ' +
     String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
@@ -105,7 +106,7 @@ function render(data){
       donut(L.percent) +
       '<div class="info"><div class="nm">' + m.icon + ' ' + m.name + '</div>' +
       '<div class="sub">' + m.sub + '</div>' +
-      '<div class="rs">🔄 ' + fmt(new Date(L.resets_at)) + ' 重置</div></div></div>';
+      '<div class="rs">🔄 ' + fmt(L.resets_at ? new Date(L.resets_at) : null) + ' 重置</div></div></div>';
   });
   var box = document.getElementById('cards');
   box.innerHTML = html;
@@ -147,7 +148,7 @@ function load(){
 }
 load();
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
-setInterval(load, 300000);
+setInterval(load, 60000);
 </script>
 </body>
 </html>
